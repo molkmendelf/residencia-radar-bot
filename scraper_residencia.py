@@ -1,32 +1,39 @@
 import os
 import json
 import requests
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 from supabase import create_client, Client
 from datetime import datetime
 
-# --- CONFIGURAÇÃO ---
-# Você vai pegar essas chaves no site do Supabase e no Google AI Studio
+# --- 1. CONFIGURAÇÃO E SEGURANÇA ---
+# Pega as chaves que você configurou no GitHub Secrets
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 
-# Inicializa clientes
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-genai.configure(api_key=GEMINI_API_KEY)
+# Inicializa o Banco de Dados (Supabase)
+# Se der erro aqui, verifique se as secrets SUPABASE_URL e KEY estão certas no GitHub
+if not SUPABASE_URL or not SUPABASE_KEY:
+    print("❌ ERRO CRÍTICO: Chaves do Supabase não encontradas.")
+    exit(1)
 
-# --- FUNÇÃO 1: O "OLHEIRO" (Busca o texto bruto) ---
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+# Inicializa a Inteligência Artificial (Google Gemini - Nova Biblioteca)
+if not GEMINI_API_KEY:
+    print("❌ ERRO CRÍTICO: Chave do Gemini não encontrada.")
+    exit(1)
+
+client = genai.Client(api_key=GEMINI_API_KEY)
+
+# --- 2. FUNÇÃO: O "OLHEIRO" (Busca o texto) ---
 def fetch_edital_content(url):
-    """
-    Na vida real, aqui você usaria bibliotecas como 'BeautifulSoup' ou 'Playwright'
-    para extrair o texto de um PDF ou HTML.
-    Para este exemplo, vamos simular que já extraímos o texto de uma página de notícias.
-    """
     print(f"🔍 Acessando {url}...")
     
-    # Exemplo prático: Vamos supor que acessamos um site e pegamos este texto:
-    # (Num caso real, use requests.get(url).text e limpe o HTML)
-    texto_bruto = """
+    # SIMULAÇÃO: Como não temos um link real agora, fingimos que baixamos este texto.
+    # Na vida real, você usaria: response = requests.get(url); return response.text
+    texto_simulado = """
     URGENTE: Saiu o edital do ENARE 2026!
     O Exame Nacional de Residência Médica publicou hoje as normas.
     São 45 vagas para Radiologia em diversas cidades.
@@ -35,13 +42,11 @@ def fetch_edital_content(url):
     A taxa subiu para R$ 350,00.
     Banca: FGV.
     """
-    return texto_bruto
+    return texto_simulado
 
-# --- FUNÇÃO 2: O CÉREBRO (Gemini estrutura os dados) ---
+# --- 3. FUNÇÃO: O CÉREBRO (Processa com IA) ---
 def extract_data_with_ai(text):
-    print("🧠 Processando com Gemini...")
-    
-    model = genai.GenerativeModel('gemini-1.5-flash') # Ou flash-exp
+    print("🧠 Processando com Gemini 1.5 Flash...")
     
     prompt = f"""
     Analise o texto de edital de residência médica abaixo e extraia os dados em JSON.
@@ -49,58 +54,83 @@ def extract_data_with_ai(text):
     inicioInscricao (AAAA-MM-DD), fimInscricao (AAAA-MM-DD), dataProva (AAAA-MM-DD), 
     taxa (float), link (string ou null), previsto (boolean).
     
-    Se faltar info, deixe null. Se for previsão, marque previsto: true.
+    Regras:
+    1. Se faltar info, deixe null. 
+    2. Se o texto parecer um rumor ou previsão, marque 'previsto': true.
+    3. Retorne APENAS o JSON.
     
     Texto: {text}
     """
     
-    # Configurando para retornar JSON puro
-    response = model.generate_content(
-        prompt,
-        generation_config={"response_mime_type": "application/json"}
-    )
-    
     try:
-        return json.loads(response.text)
+        # Usa a nova sintaxe da biblioteca google-genai (SDK v1)
+        # Atenção: 'gemini-1.5-flash' é o modelo estável gratuito
+        response = client.models.generate_content(
+            model='gemini-1.5-flash',
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                response_mime_type='application/json'
+            )
+        )
+        
+        # O Gemini já retorna o JSON limpo graças ao response_mime_type
+        dados = json.loads(response.text)
+        print("✅ Dados extraídos com sucesso!")
+        return dados
+        
     except Exception as e:
-        print(f"Erro ao parsear JSON: {e}")
+        print(f"❌ Erro ao processar com a IA: {e}")
         return None
 
-# --- FUNÇÃO 3: O ARQUIVISTA (Salva no Supabase) ---
+# --- 4. FUNÇÃO: O ARQUIVISTA (Salva no Banco) ---
 def save_to_db(data):
     if not data:
+        print("⚠️ Sem dados para salvar.")
         return
 
-    print("💾 Salvando no Banco de Dados...")
+    print(f"💾 Salvando {data.get('instituicao')} no Supabase...")
     
-    # Verifica se já existe (para não duplicar)
-    # Supondo que usamos 'instituicao' e 'especialidade' como chave única lógica
-    existing = supabase.table("editais").select("*").eq("instituicao", data['instituicao']).eq("especialidade", data['especialidade']).execute()
-    
-    if len(existing.data) > 0:
-        print("⚠️ Edital já existe. Atualizando...")
-        supabase.table("editais").update(data).eq("id", existing.data[0]['id']).execute()
-    else:
-        supabase.table("editais").insert(data).execute()
-        print("✅ Novo edital cadastrado!")
+    try:
+        # Verifica se já existe esse edital (para não duplicar)
+        # A lógica aqui busca por Instituição + Especialidade
+        existing = supabase.table("editais")\
+            .select("*")\
+            .eq("instituicao", data['instituicao'])\
+            .eq("especialidade", data['especialidade'])\
+            .execute()
+        
+        if len(existing.data) > 0:
+            print(f"🔄 Edital já existia (ID: {existing.data[0]['id']}). Atualizando...")
+            supabase.table("editais").update(data).eq("id", existing.data[0]['id']).execute()
+        else:
+            print("✨ Novo edital encontrado! Inserindo...")
+            supabase.table("editais").insert(data).execute()
+            
+        print("✅ Sucesso no Banco de Dados!")
+        
+    except Exception as e:
+        print(f"❌ Erro ao conectar no Supabase: {e}")
 
-# --- ORQUESTRAÇÃO ---
+# --- 5. ORQUESTRAÇÃO PRINCIPAL ---
 def main():
-    # Lista de URLs que você quer monitorar
+    # Lista de sites para vigiar (aqui usamos um fake só para testar a lógica)
     urls_to_check = [
-        "https://site-exemplo.com/noticia-enare",
-        # Adicione mais aqui...
+        "https://site-ficticio.com/noticia-enare-2026"
     ]
 
     for url in urls_to_check:
-        text = fetch_edital_content(url)
-        structured_data = extract_data_with_ai(text)
+        # 1. Baixa
+        texto = fetch_edital_content(url)
+        # 2. Pensa
+        dados_estruturados = extract_data_with_ai(texto)
         
-        # Adiciona um link padrão se a IA não achou
-        if structured_data and not structured_data.get('link'):
-            structured_data['link'] = url
-            
-        save_to_db(structured_data)
+        # 3. Salva
+        if dados_estruturados:
+            # Garante que tem um link, mesmo que seja o da notícia
+            if not dados_estruturados.get('link'):
+                dados_estruturados['link'] = url
+                
+            save_to_db(dados_estruturados)
 
 if __name__ == "__main__":
     main()
