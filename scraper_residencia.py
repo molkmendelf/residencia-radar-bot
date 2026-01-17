@@ -49,8 +49,9 @@ def extract_data_with_ai(text):
     """
     
     try:
+        # ATUALIZAÇÃO: Usando a versão '002' específica para evitar erro 404
         response = client.models.generate_content(
-            model='gemini-1.5-flash',
+            model='gemini-1.5-flash-002',
             contents=prompt,
             config=types.GenerateContentConfig(
                 response_mime_type='application/json'
