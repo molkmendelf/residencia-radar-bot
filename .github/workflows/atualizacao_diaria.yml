@@ -22,7 +22,13 @@ jobs:
         
     - name: Instalar dependências
       run: |
-        pip install requests google-generativeai supabase
+        python -m pip install --upgrade pip
+        pip install requests google-generativeai supabase gotrue
+        
+    - name: Verificar Arquivos (Debug)
+      run: |
+        echo "Listando arquivos no diretório atual:"
+        ls -la
         
     - name: Rodar Robô
       env:
