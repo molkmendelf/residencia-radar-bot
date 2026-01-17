@@ -29,6 +29,17 @@ jobs:
       run: |
         echo "Listando arquivos no diretório atual:"
         ls -la
+
+    - name: Verificar Segredos (Debug)
+      env:
+        URL: ${{ secrets.SUPABASE_URL }}
+        KEY: ${{ secrets.SUPABASE_KEY }}
+        GEMINI: ${{ secrets.GEMINI_API_KEY }}
+      run: |
+        echo "Verificando se as chaves foram carregadas..."
+        if [ -z "$URL" ]; then echo "❌ ERRO: SUPABASE_URL está vazia!"; else echo "✅ SUPABASE_URL carregada."; fi
+        if [ -z "$KEY" ]; then echo "❌ ERRO: SUPABASE_KEY está vazia!"; else echo "✅ SUPABASE_KEY carregada."; fi
+        if [ -z "$GEMINI" ]; then echo "❌ ERRO: GEMINI_API_KEY está vazia!"; else echo "✅ GEMINI_API_KEY carregada."; fi
         
     - name: Rodar Robô
       env:
