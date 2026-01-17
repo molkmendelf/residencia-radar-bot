@@ -1,0 +1,33 @@
+name: Atualização Diária de Editais
+
+on:
+  schedule:
+    # Roda todo dia às 09:00 UTC (06:00 Brasil)
+    - cron: '0 9 * * *'
+  # Permite rodar manualmente clicando num botão (bom para testar)
+  workflow_dispatch:
+
+jobs:
+  run-scraper:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Baixar código
+      uses: actions/checkout@v3
+      
+    - name: Configurar Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+        
+    - name: Instalar dependências
+      run: |
+        pip install requests google-generativeai supabase
+        
+    - name: Rodar Robô
+      env:
+        # Você configura essas chaves nas "Settings > Secrets" do GitHub
+        SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+        SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      run: python scraper_residencia.py
