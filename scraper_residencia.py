@@ -41,7 +41,7 @@ def fetch_edital_content(url):
 def extract_data_with_ai(text):
     print("🧠 Processando com Gemini...")
     
-    model = genai.GenerativeModel('gemini-2.0-flash') # Ou flash-exp
+    model = genai.GenerativeModel('gemini-1.5-flash') # Ou flash-exp
     
     prompt = f"""
     Analise o texto de edital de residência médica abaixo e extraia os dados em JSON.
