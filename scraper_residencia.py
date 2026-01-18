@@ -38,7 +38,7 @@ def fetch_edital_content(url):
 
 # --- 3. FUNÇÃO: O CÉREBRO ---
 def extract_data_with_ai(text):
-    print("🧠 Processando com Gemini 1.5 Flash...")
+    print("🧠 Processando com Gemini 1.5 Flash (Versão 001)...")
     prompt = f"""
     Analise o texto e extraia JSON.
     Campos: instituicao, estado (sigla), cidade, especialidade, vagas (int), 
@@ -49,9 +49,9 @@ def extract_data_with_ai(text):
     """
     
     try:
-        # VOLTAMOS PARA O NOME PADRÃO (Sem o -002)
+        # ALTERAÇÃO: Usando a versão '001' que é mais estável na API v1beta
         response = client.models.generate_content(
-            model='gemini-1.5-flash',
+            model='gemini-1.5-flash-001',
             contents=prompt,
             config=types.GenerateContentConfig(
                 response_mime_type='application/json'
