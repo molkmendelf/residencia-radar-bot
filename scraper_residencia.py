@@ -49,9 +49,9 @@ def extract_data_with_ai(text):
     """
     
     try:
-        # ATUALIZAÇÃO: Usando a versão '002' específica para evitar erro 404
+        # VOLTAMOS PARA O NOME PADRÃO (Sem o -002)
         response = client.models.generate_content(
-            model='gemini-1.5-flash-002',
+            model='gemini-1.5-flash',
             contents=prompt,
             config=types.GenerateContentConfig(
                 response_mime_type='application/json'
@@ -62,17 +62,13 @@ def extract_data_with_ai(text):
         return dados
     except Exception as e:
         print(f"❌ ERRO NA IA: {e}")
-        # Mostra o que a IA tentou responder antes de dar erro
-        if 'response' in locals():
-            print(f"Resposta bruta da IA: {response.text}")
-        exit(1) # Força erro no GitHub
+        exit(1)
 
 # --- 4. FUNÇÃO: O ARQUIVISTA ---
 def save_to_db(data):
     print(f"💾 Tentando salvar {data.get('instituicao')}...")
     
     try:
-        # Tenta inserir. Se falhar por permissão, vai cair no except.
         existing = supabase.table("editais").select("*").eq("instituicao", data['instituicao']).eq("especialidade", data['especialidade']).execute()
         
         if len(existing.data) > 0:
@@ -81,12 +77,12 @@ def save_to_db(data):
         else:
             print("✨ Inserindo novo registro...")
             result = supabase.table("editais").insert(data).execute()
-            print(f"✅ Resultado do Insert: {result}")
+            print(f"✅ Sucesso! Dados salvos.")
             
     except Exception as e:
         print(f"❌ ERRO NO SUPABASE: {e}")
-        print("💡 DICA: Verifique se você desativou o RLS ou criou as Policies no Supabase.")
-        exit(1) # Força erro no GitHub
+        print("💡 DICA: Verifique se rodou o comando SQL: ALTER TABLE editais DISABLE ROW LEVEL SECURITY;")
+        exit(1)
 
 # --- 5. PRINCIPAL ---
 def main():
