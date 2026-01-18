@@ -1,5 +1,6 @@
 import os
 import json
+import time
 import requests
 from google import genai
 from google.genai import types
@@ -38,7 +39,10 @@ def fetch_edital_content(url):
 
 # --- 3. FUNÇÃO: O CÉREBRO ---
 def extract_data_with_ai(text):
-    print("🧠 Processando com Gemini 1.5 Flash (Versão 001)...")
+    # Voltamos para o modelo 2.0 que foi o único reconhecido (apesar do erro de cota anterior)
+    model_name = 'gemini-2.0-flash'
+    print(f"🧠 Processando com {model_name}...")
+    
     prompt = f"""
     Analise o texto e extraia JSON.
     Campos: instituicao, estado (sigla), cidade, especialidade, vagas (int), 
@@ -49,9 +53,8 @@ def extract_data_with_ai(text):
     """
     
     try:
-        # ALTERAÇÃO: Usando a versão '001' que é mais estável na API v1beta
         response = client.models.generate_content(
-            model='gemini-1.5-flash-001',
+            model=model_name,
             contents=prompt,
             config=types.GenerateContentConfig(
                 response_mime_type='application/json'
@@ -60,8 +63,15 @@ def extract_data_with_ai(text):
         dados = json.loads(response.text)
         print("✅ JSON Gerado com sucesso.")
         return dados
+        
     except Exception as e:
-        print(f"❌ ERRO NA IA: {e}")
+        error_msg = str(e)
+        if "429" in error_msg or "Quota exceeded" in error_msg:
+            print("⏳ ERRO DE COTA (429): O modelo 2.0 Flash está cheio no momento. Tente novamente em alguns minutos.")
+        elif "404" in error_msg:
+            print(f"❌ ERRO 404: O modelo {model_name} não foi encontrado. Verifique a API Key.")
+        else:
+            print(f"❌ ERRO NA IA: {e}")
         exit(1)
 
 # --- 4. FUNÇÃO: O ARQUIVISTA ---
